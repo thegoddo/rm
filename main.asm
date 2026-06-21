@@ -1,0 +1,67 @@
+section .data ; initialized data (takes space)
+
+  v_flag_str db "-v", 0 ; 0 for null terminator string
+  i_flag_str db "-i", 0
+
+  usage_msg db "the usage: ./rm <file1> <file2>...", 0 ; let's say this starts at address 1000
+  ; The string takes up 23 bytes of memory
+
+  ; $ defines the current address
+  usage_msg_len equ $ - usage_msg ; The CPU is now at address 1023, $(current address) - ; usage_msg address
+
+  deleted_msg db "deleted", 0
+  deleted_msg_len equ $ - deleted_msg
+
+section .bss  ; unitialized data (doen't take space)
+
+  response resb 2
+  v_flag resb 1
+  r_flag resb 1
+
+
+
+section .text ; CPU execute (takes space)
+
+global _start
+
+_start:
+  mov rdi, [rsp] ; the argc
+  lea rsi, [rsp + 16] ; the argv
+  cmp rdi, 1
+  je print_usage
+  jmp program_end
+
+  call main
+
+; ###################### main function ############################
+  push rbp
+  mov rbp, rsp
+  
+  ; big space between rsp and rbp
+  sub rsp, 200; big value for saving struct info
+
+  mov [rbp - 8], rdi; saving the argc
+  mov [rbp - 16], rsi ; saving the argv
+  ; linux system store argc in rdi
+  ; linux system store argv in rsi
+  ; so rbp - 8 is, go 8 word below and save rdi there
+  ; so rbp - 16 is, go 16 words below and rsi there
+
+  ; setting arguments for check_flag function
+  mov rdi, [rbp - 8] ; passing the argc
+  mov rsi, [rbp - 16]; passing the argv
+  mov rdx, i_glag
+  mov rcx, v_flag
+  call check_flags
+
+print_usage:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, usage_msg
+  mov rdx, usage_msg_len
+  syscall
+
+program_end:
+  mov rax, 60
+  mov rdi, 0
+  syscall
