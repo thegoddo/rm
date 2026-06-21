@@ -15,4 +15,4 @@ nasm -f elf64 main.asm -o main
 gcc -no-pi -nostartfiles main.o -o main
 ```
 - `no-pie`: Don't change the architecture
-- `nostartfiles`: don't create start flag, gcc automatically create one, and we want out start file
+- `nostartfiles`: don't create start flag, gcc automatically create one, and we want our start file
