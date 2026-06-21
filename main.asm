@@ -50,8 +50,6 @@ _start:
   ; setting arguments for check_flag function
   mov rdi, [rbp - 8] ; passing the argc
   mov rsi, [rbp - 16]; passing the argv
-  mov rdx, i_glag
-  mov rcx, v_flag
   call check_flags
 
 print_usage:
@@ -65,3 +63,54 @@ program_end:
   mov rax, 60
   mov rdi, 0
   syscall
+
+
+
+
+; ################## check flags function #######################
+check_flags:
+  push rbp
+  mov rbp, rsp
+  sub rsp, 48
+
+  mov [rbp - 8], rdi; argc
+  mov [rbp - 16], rsi ; argv
+
+  mov r14, 0
+  mov r12, [rbp - 16]
+  mov r9, [rbp - 8]
+
+check_loop:
+  cmp r14, r9
+  je check_done
+
+  mov rdi, [r12]
+  mov rsi i_flag_str
+  call strcmp
+  cmp rax, 0
+  je set_i_flag
+
+  mov rdi, [r12]
+  mov rsi, v_flag_str
+  call strcmp
+  cmp rax, 0
+  je set_v_flag
+
+  jmp check_done
+
+set_i_flag:
+  mov byte [i_flag], 1
+  inc r14
+  add r12, 8
+  jmp check_loop
+
+set_v_flag:
+  mov byte [v_flag], 1
+  inc r14
+  add r12, 8
+  jmp check_loop
+
+check_done:
+  add rsp, 48
+  pop rbp
+  ret
