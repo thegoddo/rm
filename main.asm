@@ -12,11 +12,13 @@ section .data ; initialized data (takes space)
   deleted_msg db "deleted", 0
   deleted_msg_len equ $ - deleted_msg
 
+extern strcmp
+
 section .bss  ; unitialized data (doen't take space)
 
   response resb 2
   v_flag resb 1
-  r_flag resb 1
+  i_flag resb 1
 
 
 
@@ -34,6 +36,7 @@ _start:
   call main
 
 ; ###################### main function ############################
+main:
   push rbp
   mov rbp, rsp
   
@@ -51,6 +54,7 @@ _start:
   mov rdi, [rbp - 8] ; passing the argc
   mov rsi, [rbp - 16]; passing the argv
   call check_flags
+  jmp program_end
 
 print_usage:
   mov rax, 1
@@ -85,7 +89,7 @@ check_loop:
   je check_done
 
   mov rdi, [r12]
-  mov rsi i_flag_str
+  mov rsi, i_flag_str
   call strcmp
   cmp rax, 0
   je set_i_flag
@@ -93,6 +97,10 @@ check_loop:
   mov rdi, [r12]
   mov rsi, v_flag_str
   call strcmp
+  ; strcmp returns its result in RAX:
+    ; RAX = 0 if strings match
+    ; RAX = negative if string1 < string2
+    ; RAX = positive if string1 > string2
   cmp rax, 0
   je set_v_flag
 
