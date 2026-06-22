@@ -11,6 +11,11 @@ section .data ; initialized data (takes space)
 
   deleted_msg db "deleted", 0
   deleted_msg_len equ $ - deleted_msg
+  fstat_fail_msg db "fstat failed"
+  fstat_fail_len equ $ - fstat_fail_msg
+  newline db 10
+  question_message db "do you want to delete this :", 0
+  question_message_len equ $ - question_message
 
 extern strcmp
 
@@ -20,6 +25,7 @@ section .bss  ; unitialized data (doen't take space)
   v_flag resb 1
   i_flag resb 1
 
+  
 
 
 section .text ; CPU execute (takes space)
@@ -55,13 +61,115 @@ main:
   mov rsi, [rbp - 16]; passing the argv
   call check_flags
 
-  mov r12, [rbp -16]
+  mov r12, [rbp - 16]
   ; rax = 1 * 8 = 8, r12 + 8 = next argument
   ; rax = 2 * 8 = 16, r12 + 16 = second next argument
-  imul rax, rax, 8 ; imul is signed multiply, multiply the third value to second and store in first 
+  imul rax, rax, 8 ; imul is signed multiply, multiply the third value to second and store in first. rax = rax * 8
   add r12, rax
 
 delete_loop:
+  mov rax, [r12]
+  cmp rax, 0
+  je delete_end
+  ; call fstat syscall
+
+  mov rax, 262  ; fstat syscall number
+  mov rdi, -100 ; AT_FDCWD - use current directory
+  mov rsi, [r12] ; file path (char *)
+  mov rdx, [rsp + 48]  ; struct stat *
+  mov r10, -0x100    ; behviour flags, watch don't follow any symlink like lstat
+  syscall
+  cmp rax, 0
+  jne print_error
+  mov eax, dword [rdx + 24]
+  and rax, 0xF000
+  cmp rax, 0x8000 ; this for a file
+  je this_is_file
+  cmp rax, 0x4000 ; this for dir
+  je this_is_dir
+
+this_is_dir:
+  cmp byte [v_flag], 1
+  je call_check_answer_dir
+
+call_check_answer_dir:
+  call check_answer
+  cmp rax, 1
+  je delete_dir
+  jmp skip_delete
+
+
+this_is_file:
+  cmp byte i_flag, 1
+  je call_check_answer_file
+
+call_check_answer_file:
+  call check_answer
+  cmp rax, 1
+  je delete_file
+  jmp skip_delete
+
+delete_file:
+  mov rax, 87
+  mov rdi, [r12]
+  syscall
+  cmp byte [v_flag], 1
+  je print_deleted
+  jmp skip_delete
+
+delete_dir:
+  mov rax, 40
+  mov rdi, [r12]
+  syscall
+  cmp byte [v_flag] , 1
+	je print_deleted
+	jmp skip_delete
+
+print_deleted:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, deleted_msg
+  mov rdx, deleted_msg_len
+  syscall
+
+
+  mov rdi, [r12]
+  call strlen
+  mov rdx, rax
+  ; print the name of the element deleted
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, [r12]
+  ; rdx has already the len
+  syscall
+
+  ; print new_line
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, new_line
+  mov rdx, 1
+  syscall
+
+  ; increment r12 and jmp again to the looop
+  add r12, 8
+  jmp delete_loop
+  
+
+delete_end:
+  jmp program_end
+
+skip_delete:
+  ; increment the r12 and jmp again to the loop
+  add r12, 8
+  jmp delete_loop
+
+print_error:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, fstat_fail_msg 
+  mov rdx, fstat_fail_len
+  syscall
+  jmp skip_delete
 
 print_usage:
   mov rax, 1
@@ -130,3 +238,45 @@ check_done:
   add rsp, 48
   pop rbp
   ret
+
+; #################check answer##################
+check_answer:
+  ; question message
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, question_message
+  mov rdx, question_message_len
+  syscall
+  
+  mov rdi, [r12]
+  call strlen
+  mov rdx, rax,
+
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, [r12]
+  ; rdx already set to len
+  syscall
+
+  ; get the answer
+  mov rdi, 0
+  mov rdi, 0
+  mov rsi, response
+  mov rdx, 1
+  syscall
+
+  cmp byte [response], 'y'
+  je set_rax_1
+  jmp set_rax_0
+
+set_rax_1:
+  mov rax, 1
+  jmp check_answer_end
+
+set_rax_0:
+  mov rax, 0
+  jmp check_answer_end
+
+check_answer_end:
+  ret
+
