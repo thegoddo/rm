@@ -54,7 +54,14 @@ main:
   mov rdi, [rbp - 8] ; passing the argc
   mov rsi, [rbp - 16]; passing the argv
   call check_flags
-  jmp program_end
+
+  mov r12, [rbp -16]
+  ; rax = 1 * 8 = 8, r12 + 8 = next argument
+  ; rax = 2 * 8 = 16, r12 + 16 = second next argument
+  imul rax, rax, 8 ; imul is signed multiply, multiply the third value to second and store in first 
+  add r12, rax
+
+delete_loop:
 
 print_usage:
   mov rax, 1
@@ -119,6 +126,7 @@ set_v_flag:
   jmp check_loop
 
 check_done:
+  mov rax, r14
   add rsp, 48
   pop rbp
   ret
